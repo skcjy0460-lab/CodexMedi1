@@ -393,9 +393,7 @@ def search_cases(df: pd.DataFrame, query: str, department: str) -> pd.DataFrame:
 def build_hira_search_urls(keyword: str) -> List[Tuple[str, str]]:
     quoted = requests.utils.quote(keyword)
     return [
-        ("심평원 고시/심사기준 통합검색", f"https://www.hira.or.kr/search/search.do?query={quoted}"),
-        ("요양기관 업무포털", f"https://biz.hira.or.kr/index.do"),
-        ("심평원 홈페이지", f"https://www.hira.or.kr/main.do"),
+        ("심평원 통합검색에서 직접 확인", f"https://www.hira.or.kr/co/search.do?query={quoted}"),
     ]
 
 
@@ -403,7 +401,7 @@ def build_hira_search_urls(keyword: str) -> List[Tuple[str, str]]:
 def fetch_public_hira_snippets(keyword: str) -> List[Dict[str, str]]:
     if not keyword.strip() or BeautifulSoup is None:
         return []
-    url = f"https://www.hira.or.kr/search/search.do?query={requests.utils.quote(keyword)}"
+    url = f"https://www.hira.or.kr/co/search.do?query={requests.utils.quote(keyword)}"
     headers = {
         "User-Agent": "Mozilla/5.0 MediumClaimReview/1.0",
         "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
@@ -415,15 +413,19 @@ def fetch_public_hira_snippets(keyword: str) -> List[Dict[str, str]]:
         return []
     soup = BeautifulSoup(response.text, "html.parser")
     snippets: List[Dict[str, str]] = []
-    for item in soup.select("a")[:80]:
+    for item in soup.select("a")[:160]:
         text = " ".join(item.get_text(" ", strip=True).split())
         href = item.get("href", "")
         if len(text) < 8:
+            continue
+        if text in {"통합검색", "로그인", "회원가입", "전체메뉴", "본문 바로가기"}:
             continue
         if not any(term in text.lower() for term in split_terms(keyword)):
             continue
         if href.startswith("/"):
             href = "https://www.hira.or.kr" + href
+        elif href.startswith("javascript"):
+            href = url
         snippets.append({"title": text[:120], "url": href or url})
         if len(snippets) >= 5:
             break
